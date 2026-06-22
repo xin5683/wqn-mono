@@ -1,0 +1,40 @@
+# Wrong-Question-Notebook frontend stack: Next.js (standalone).
+#
+# This stack depends on the backend stack (../../backend)
+# for the shared `wqn-net` network and the `backend` service it proxies to.
+#
+# Usage (start the backend stack first so `wqn-net` and `backend` exist):
+#   (cd ../../backend && docker compose up -d)
+#   docker compose up --build -d
+#
+# To point at a real domain, create a `.env` next to this file (or `cp
+# env.example .env`) and set WQN_API_BASE_URL / SITE_URL accordingly — the same
+# file also covers local `npm run dev`, since both read these variable names.
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        # Baked into the standalone routes manifest at build time:
+        WQN_API_BASE_URL: ${WQN_API_BASE_URL:-http://backend:8080}
+        SITE_URL: ${SITE_URL:-http://localhost:3000}
+    image: wqn-frontend:latest
+    container_name: wqn-frontend
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      # Needed at runtime by proxy.ts and server-side fetches:
+      WQN_API_BASE_URL: ${WQN_API_BASE_URL:-http://backend:8080}
+      SITE_URL: ${SITE_URL:-http://localhost:3000}
+      PORT: 3000
+      HOSTNAME: 0.0.0.0
+    ports:
+      - '${FRONTEND_PORT:-3000}:3000'
+    networks:
+      - wqn-net
+
+networks:
+  wqn-net:
+    name: wqn-net
+    external: true

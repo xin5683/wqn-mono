@@ -1,0 +1,22 @@
+node_modules/
+.next/
+out/
+build/
+coverage/
+.git/
+.gitignore
+.vercel/
+
+*.log
+npm-debug.log*
+.DS_Store
+tsconfig.tsbuildinfo
+
+# Never bake local env into the image — build uses Dockerfile args/env only:
+.env
+.env.*
+
+# Docker files
+Dockerfile
+.dockerignore
+docker-compose.yml

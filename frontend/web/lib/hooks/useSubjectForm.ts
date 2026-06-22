@@ -1,0 +1,130 @@
+'use client';
+
+import { useState, useEffect, useCallback, useRef, FormEvent } from 'react';
+import { useRouter } from '@/i18n/navigation';
+import { toast } from 'sonner';
+import {
+  SUBJECT_CONSTANTS,
+  getNextSubjectColor,
+  suggestIconForSubject,
+  SubjectColor,
+  SubjectIcon,
+} from '@/lib/constants';
+import { SubjectWithMetadata } from '@/lib/types';
+import { validatePayload } from '@/lib/validation/payload';
+import { CreateSubjectDto } from '@/lib/validation/schemas';
+import { clientApi } from '@/lib/api/client';
+
+interface UseSubjectFormProps {
+  existingSubjects?: Array<{ color?: string }>;
+  onSuccess?: (subject: SubjectWithMetadata) => void;
+  resetOnSuccess?: boolean;
+}
+
+export function useSubjectForm({
+  existingSubjects = [],
+  onSuccess,
+  resetOnSuccess = true,
+}: UseSubjectFormProps = {}) {
+  const [name, setName] = useState('');
+  const [color, setColor] = useState<SubjectColor>(
+    SUBJECT_CONSTANTS.DEFAULT_COLOR
+  );
+  const [icon, setIcon] = useState<SubjectIcon>(SUBJECT_CONSTANTS.DEFAULT_ICON);
+  const [busy, setBusy] = useState(false);
+  const router = useRouter();
+
+  // Ref to track current fetch abort controller
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  // Auto-suggest icon when name changes
+  useEffect(() => {
+    if (name.trim()) {
+      setIcon(suggestIconForSubject(name));
+    }
+  }, [name]);
+
+  // Auto-rotate color on mount or when existingSubjects changes
+  useEffect(() => {
+    setColor(getNextSubjectColor(existingSubjects));
+  }, [existingSubjects]);
+
+  const resetForm = useCallback(() => {
+    setName('');
+    setColor(getNextSubjectColor(existingSubjects));
+    setIcon(SUBJECT_CONSTANTS.DEFAULT_ICON);
+  }, [existingSubjects]);
+
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!name.trim()) {
+      toast.error('Subject name is required');
+      return;
+    }
+
+    // Cancel any existing in-flight request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
+
+    setBusy(true);
+    try {
+      const subject = await clientApi<SubjectWithMetadata>('/api/subjects', {
+        method: 'POST',
+        body: validatePayload(
+          { name: name.trim(), color, icon },
+          CreateSubjectDto,
+          'create subject'
+        ),
+        signal: abortController.signal,
+      });
+
+      if (resetOnSuccess) {
+        resetForm();
+      }
+
+      onSuccess?.(subject);
+      toast.success('Subject created');
+      router.refresh();
+
+      return subject;
+    } catch (err: unknown) {
+      // Ignore abort errors - they happen when user navigates away or closes dialog
+      if (err instanceof Error) {
+        // AbortError is thrown when fetch is cancelled by AbortController
+        if (err.name === 'AbortError') {
+          return;
+        }
+        // TypeError with 'Failed to fetch' message usually means network error or CORS issue
+        // This can happen if the request is cancelled due to page navigation
+        if (err.name === 'TypeError' && err.message === 'Failed to fetch') {
+          return;
+        }
+        toast.error('Failed to create subject: ' + err.message);
+        throw new Error(`Failed to create subject: ${err.message}`);
+      }
+      toast.error('Failed to create subject');
+      throw new Error(`Failed to create subject: ${String(err)}`);
+    } finally {
+      setBusy(false);
+      abortControllerRef.current = null;
+    }
+  };
+
+  return {
+    // Form state
+    name,
+    color,
+    icon,
+    busy,
+    // Setters
+    setName,
+    setColor,
+    setIcon,
+    // Actions
+    handleSubmit,
+    resetForm,
+  };
+}

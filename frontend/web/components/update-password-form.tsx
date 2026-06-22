@@ -1,0 +1,87 @@
+'use client';
+
+import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { useRouter } from '@/i18n/navigation';
+import { useState } from 'react';
+import { ROUTES } from '@/lib/constants';
+import { Lock } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+import { clientApi } from '@/lib/api/client';
+
+export function UpdatePasswordForm({
+  className,
+  ...props
+}: React.ComponentPropsWithoutRef<'div'>) {
+  const t = useTranslations('Auth');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const router = useRouter();
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      await clientApi('/api/auth/password', {
+        method: 'PATCH',
+        body: { newPassword: password },
+      });
+      router.push(ROUTES.SUBJECTS);
+      router.refresh();
+    } catch (error: unknown) {
+      setError(error instanceof Error ? error.message : 'An error occurred');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div className={cn('w-full auth-fade-in', className)} {...props}>
+      <div className="auth-card-amber">
+        {/* Icon header */}
+        <div className="flex justify-center mb-6 auth-icon-entrance">
+          <div className="auth-icon-box-amber">
+            <Lock className="w-6 h-6 text-amber-600 dark:text-amber-400" />
+          </div>
+        </div>
+
+        {/* Title */}
+        <div className="text-center mb-6 space-y-2">
+          <h1 className="auth-title">{t('updateYourPassword')}</h1>
+          <p className="auth-subtitle">{t('updatePasswordDesc')}</p>
+        </div>
+
+        {/* Form */}
+        <form
+          onSubmit={handleForgotPassword}
+          className="auth-slide-up space-y-4"
+        >
+          <div className="space-y-2">
+            <Label htmlFor="password">{t('newPassword')}</Label>
+            <Input
+              id="password"
+              type="password"
+              placeholder={t('newPassword')}
+              required
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+            />
+          </div>
+          {error && <p className="form-error">{error}</p>}
+          <Button
+            type="submit"
+            className="w-full btn-cta-primary"
+            disabled={isLoading}
+          >
+            {isLoading ? t('updating') : t('updatePassword')}
+          </Button>
+        </form>
+      </div>
+    </div>
+  );
+}

@@ -1,0 +1,22 @@
+# Build artifacts (can be GBs — never copy into the build context)
+target/
+
+# VCS
+.git/
+.gitignore
+
+# Runtime data (must not be baked into the image)
+storage/
+
+# Docker / compose files
+Dockerfile
+.dockerignore
+docker-compose.yml
+
+# Local env — secrets must never enter the image
+.env
+.env.*
+
+# Editor / OS noise
+*.md
+docs/

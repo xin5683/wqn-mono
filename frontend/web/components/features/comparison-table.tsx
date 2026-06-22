@@ -1,0 +1,297 @@
+'use client';
+
+import { useTranslations } from 'next-intl';
+import { Check, X, Minus } from 'lucide-react';
+
+type StatusIconType = 'check' | 'cross' | 'partial';
+
+function StatusIcon({ type, label }: { type: StatusIconType; label: string }) {
+  if (type === 'check') {
+    return (
+      <div
+        className="w-5 h-5 rounded-full bg-green-100 dark:bg-green-900/40 flex items-center justify-center"
+        role="img"
+        aria-label={label}
+      >
+        <Check
+          className="w-3 h-3 text-green-600 dark:text-green-400"
+          aria-hidden="true"
+        />
+      </div>
+    );
+  }
+  if (type === 'partial') {
+    return (
+      <div
+        className="w-5 h-5 rounded-full bg-yellow-100 dark:bg-yellow-900/40 flex items-center justify-center"
+        role="img"
+        aria-label={label}
+      >
+        <Minus
+          className="w-3 h-3 text-yellow-600 dark:text-yellow-400"
+          aria-hidden="true"
+        />
+      </div>
+    );
+  }
+  return (
+    <div
+      className="w-5 h-5 rounded-full bg-red-100 dark:bg-red-900/40 flex items-center justify-center"
+      role="img"
+      aria-label={label}
+    >
+      <X
+        className="w-3 h-3 text-red-500 dark:text-red-400"
+        aria-hidden="true"
+      />
+    </div>
+  );
+}
+
+export function ComparisonTable() {
+  const t = useTranslations('Comparison');
+  const tCommon = useTranslations('Common');
+
+  const statusLabel = (type: StatusIconType) => {
+    if (type === 'check') return t('supported');
+    if (type === 'partial') return t('partiallySupported');
+    return t('notSupported');
+  };
+
+  const rows = [
+    {
+      feature: t('recordWrongQuestions'),
+      physical: { icon: 'check' as StatusIconType, label: t('handwrite') },
+      digital: { icon: 'check' as StatusIconType, label: t('photoScreenshot') },
+      wqn: { icon: 'check' as StatusIconType, label: t('structuredForm') },
+    },
+    {
+      feature: t('organizeBySubject'),
+      physical: {
+        icon: 'partial' as StatusIconType,
+        label: t('separateNotebooks'),
+      },
+      digital: {
+        icon: 'partial' as StatusIconType,
+        label: t('foldersHeadings'),
+      },
+      wqn: {
+        icon: 'check' as StatusIconType,
+        label: t('subjectsColorsIcons'),
+      },
+    },
+    {
+      feature: t('searchFilter'),
+      physical: {
+        icon: 'cross' as StatusIconType,
+        label: t('flipThroughPages'),
+      },
+      digital: {
+        icon: 'partial' as StatusIconType,
+        label: t('ctrlFTextOnly'),
+      },
+      wqn: {
+        icon: 'check' as StatusIconType,
+        label: t('tagsStatusSmartFilters'),
+      },
+    },
+    {
+      feature: t('trackMasteryProgress'),
+      physical: { icon: 'cross' as StatusIconType, label: t('tallyMarks') },
+      digital: {
+        icon: 'cross' as StatusIconType,
+        label: t('manualTracking'),
+      },
+      wqn: {
+        icon: 'check' as StatusIconType,
+        label: t('automaticStatusTracking'),
+      },
+    },
+    {
+      feature: t('reviewSessions'),
+      physical: {
+        icon: 'partial' as StatusIconType,
+        label: t('selfDirected'),
+      },
+      digital: {
+        icon: 'partial' as StatusIconType,
+        label: t('selfDirected'),
+      },
+      wqn: {
+        icon: 'check' as StatusIconType,
+        label: t('interactiveWithAutoMarking'),
+      },
+    },
+    {
+      feature: t('analyticsInsights'),
+      physical: { icon: 'cross' as StatusIconType, label: tCommon('none') },
+      digital: { icon: 'cross' as StatusIconType, label: tCommon('none') },
+      wqn: {
+        icon: 'check' as StatusIconType,
+        label: t('chartsHeatmapsStreaks'),
+      },
+    },
+    {
+      feature: t('shareWithOthers'),
+      physical: { icon: 'cross' as StatusIconType, label: t('photocopy') },
+      digital: {
+        icon: 'check' as StatusIconType,
+        label: t('shareDocLink'),
+      },
+      wqn: {
+        icon: 'check' as StatusIconType,
+        label: t('shareAccessLink'),
+      },
+    },
+    {
+      feature: t('accessAnywhere'),
+      physical: { icon: 'cross' as StatusIconType, label: t('carryIt') },
+      digital: { icon: 'check' as StatusIconType, label: t('anyBrowser') },
+      wqn: { icon: 'check' as StatusIconType, label: t('anyBrowser') },
+    },
+  ];
+
+  return (
+    <>
+      {/* Desktop table */}
+      <div className="hidden md:block overflow-x-auto">
+        <table className="w-full border-collapse">
+          <thead>
+            <tr>
+              <th
+                scope="col"
+                className="text-left p-4 text-sm font-medium text-gray-600 dark:text-gray-400 w-[28%]"
+              >
+                {t('feature')}
+              </th>
+              <th
+                scope="col"
+                className="text-center p-4 text-sm font-medium text-gray-600 dark:text-gray-400 w-[24%]"
+              >
+                {t('physicalNotebook')}
+              </th>
+              <th
+                scope="col"
+                className="text-center p-4 text-sm font-medium text-gray-600 dark:text-gray-400 w-[24%]"
+              >
+                {t('digitalDocument')}
+              </th>
+              <th
+                scope="col"
+                className="text-center p-4 text-sm font-semibold text-amber-700 dark:text-amber-300 w-[24%] bg-amber-200/50 dark:bg-amber-900/20 rounded-t-2xl"
+              >
+                {t('wqn')}
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row, i) => (
+              <tr
+                key={row.feature}
+                className={
+                  i % 2 === 0
+                    ? 'bg-gray-50/50 dark:bg-gray-800/20'
+                    : 'bg-transparent'
+                }
+              >
+                <td className="p-4 text-sm font-medium text-gray-700 dark:text-gray-300">
+                  {row.feature}
+                </td>
+                <td className="p-4">
+                  <div className="flex flex-col items-center gap-1">
+                    <StatusIcon
+                      type={row.physical.icon}
+                      label={statusLabel(row.physical.icon)}
+                    />
+                    <span className="text-xs text-gray-600 dark:text-gray-400">
+                      {row.physical.label}
+                    </span>
+                  </div>
+                </td>
+                <td className="p-4">
+                  <div className="flex flex-col items-center gap-1">
+                    <StatusIcon
+                      type={row.digital.icon}
+                      label={statusLabel(row.digital.icon)}
+                    />
+                    <span className="text-xs text-gray-600 dark:text-gray-400">
+                      {row.digital.label}
+                    </span>
+                  </div>
+                </td>
+                <td
+                  className={
+                    'p-4 bg-amber-200/30 dark:bg-amber-900/20' +
+                    (i === rows.length - 1 ? ' rounded-b-2xl' : '')
+                  }
+                >
+                  <div className="flex flex-col items-center gap-1">
+                    <StatusIcon
+                      type={row.wqn.icon}
+                      label={statusLabel(row.wqn.icon)}
+                    />
+                    <span className="text-xs font-medium text-amber-700 dark:text-amber-300">
+                      {row.wqn.label}
+                    </span>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Mobile stacked cards */}
+      <div className="md:hidden space-y-3">
+        {rows.map(row => (
+          <div
+            key={row.feature}
+            className="rounded-xl border border-gray-200/60 dark:border-gray-800/60 p-4 space-y-2.5"
+          >
+            <h4 className="text-sm font-semibold text-gray-900 dark:text-white">
+              {row.feature}
+            </h4>
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2.5">
+                <StatusIcon
+                  type={row.physical.icon}
+                  label={statusLabel(row.physical.icon)}
+                />
+                <span className="text-xs font-medium text-gray-600 dark:text-gray-400 w-14 shrink-0">
+                  {t('physical')}
+                </span>
+                <span className="text-xs text-gray-500 dark:text-gray-400">
+                  {row.physical.label}
+                </span>
+              </div>
+              <div className="flex items-center gap-2.5">
+                <StatusIcon
+                  type={row.digital.icon}
+                  label={statusLabel(row.digital.icon)}
+                />
+                <span className="text-xs font-medium text-gray-600 dark:text-gray-400 w-14 shrink-0">
+                  {t('digital')}
+                </span>
+                <span className="text-xs text-gray-500 dark:text-gray-400">
+                  {row.digital.label}
+                </span>
+              </div>
+              <div className="flex items-center gap-2.5 rounded-lg bg-amber-50/50 dark:bg-amber-900/10 px-2 py-1.5 -mx-2">
+                <StatusIcon
+                  type={row.wqn.icon}
+                  label={statusLabel(row.wqn.icon)}
+                />
+                <span className="text-xs font-semibold text-amber-700 dark:text-amber-300 w-14 shrink-0">
+                  {t('wqn')}
+                </span>
+                <span className="text-xs font-medium text-amber-600 dark:text-amber-400">
+                  {row.wqn.label}
+                </span>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </>
+  );
+}
