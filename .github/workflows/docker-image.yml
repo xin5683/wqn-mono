@@ -1,17 +1,179 @@
-name: Docker Image CI
+name: Build and Deploy
+
+# Build the backend (Rust/Axum) + frontend (Next.js) Docker images on every push
+# and PR. On pushes to `main` (and manual dispatch) the built images are shipped
+# to a custom server over SSH (no registry): tarballs are scp'd, `podman load`-ed,
+# and `podman compose up -d` recreates the stack defined by the root
+# docker-compose.yml using a .env rendered from GitHub Secrets.
+#
+# The stack is assumed to sit behind a Caddy reverse proxy that terminates TLS
+# (HTTPS). Accordingly AUTH_COOKIE_SECURE defaults to true. SITE_URL / CORS are
+# optional — see the "Render .env" step for what happens when they're left unset.
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [main]
   pull_request:
-    branches: [ "main" ]
+    branches: [main]
+  workflow_dispatch:
+
+# Non-secret deploy knobs. Override in Settings → Secrets and variables → Actions
+# → Variables if your server differs.
+env:
+  DEPLOY_PATH: /srv/wqn
+  SSH_PORT: '22'
+  # Tags MUST match the `image:` fields in docker-compose.yml — `podman compose up`
+  # finds the locally-loaded image by this name (it won't rebuild without --build).
+  BACKEND_IMAGE: wqn-backend:latest
+  FRONTEND_IMAGE: wqn-frontend:latest
+  # SSH options: auto-trust the host key on first connect (TOFU) + fail if it later
+  # changes. Pin the key via a known_hosts secret for stricter hardening.
+  SSH_OPTS: '-o StrictHostKeyChecking=accept-new -o ConnectTimeout=30'
+  # The Dockerfiles default to China mirrors (TUNA / npmmirror) for local builds.
+  # GitHub-hosted runners are US-based, so we pass empty values to use the official
+  # Alpine / npm sources (faster + more reliable from there). On a China self-hosted
+  # runner set these to mirrors.tuna.tsinghua.edu.cn / https://registry.npmmirror.com/
+  APK_MIRROR: ''
+  NPM_REGISTRY: ''
 
 jobs:
-
-  build:
-
+  build-and-deploy:
+    name: Build & deploy
     runs-on: ubuntu-latest
+    # Required secrets live in the "wqn" GitHub Environment (not at repository
+    # level) — declare it so environment-scoped secrets are visible to this job.
+    environment: wqn
 
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
+      - uses: docker/setup-buildx-action@v3
+
+      # ---- build (runs on PRs too, to validate the Dockerfiles) -----------------
+
+      - name: Build backend image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          push: false
+          load: true
+          tags: ${{ env.BACKEND_IMAGE }}
+          build-args: |
+            APK_MIRROR=${{ env.APK_MIRROR }}
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,scope=backend,mode=max
+
+      - name: Build frontend image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./frontend/web
+          push: false
+          load: true
+          tags: ${{ env.FRONTEND_IMAGE }}
+          build-args: |
+            NPM_REGISTRY=${{ env.NPM_REGISTRY }}
+            # next.config.ts bakes the /api rewrite destination into the routes
+            # manifest at BUILD time (default would be 127.0.0.1). Point it at the
+            # in-network backend service so server-side /api proxying works.
+            WQN_API_BASE_URL=http://backend:8080
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,scope=frontend,mode=max
+
+      - name: Save images to gzipped tarballs
+        run: |
+          docker save "${BACKEND_IMAGE}" | gzip > backend.tgz
+          docker save "${FRONTEND_IMAGE}" | gzip > frontend.tgz
+          ls -lh backend.tgz frontend.tgz
+
+      # ---- deploy (only on pushes to main / manual dispatch) -------------------
+      # On PRs everything above this line still runs; nothing below executes.
+
+      - name: Render .env from secrets
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+        env:
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          AUTH_JWT_SECRET: ${{ secrets.AUTH_JWT_SECRET }}
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SITE_URL: ${{ secrets.SITE_URL }}
+          CORS_ALLOWED_ORIGINS: ${{ secrets.CORS_ALLOWED_ORIGINS }}
+          # Caddy terminates TLS in front → mark the session cookie Secure. Flip to
+          # 'false' via the repo Variable AUTH_COOKIE_SECURE if you ever serve plain HTTP.
+          AUTH_COOKIE_SECURE: ${{ vars.AUTH_COOKIE_SECURE || 'true' }}
+        run: |
+          # Preflight: confirm the required secrets are visible to this job. Secrets
+          # scoped to a GitHub Environment are invisible unless the job declares the
+          # matching 'environment:' (this job declares environment: wqn).
+          missing=0
+          for name in AUTH_JWT_SECRET POSTGRES_PASSWORD SSH_HOST SSH_USER SSH_PRIVATE_KEY; do
+            if [ -z "${!name}" ]; then
+              echo "::error::Required secret '${name}' is empty/missing in this run."
+              missing=1
+            fi
+          done
+          if [ $missing -eq 1 ]; then
+            echo "::error::One or more required secrets are not visible. If they're set in the UI but still missing, they're scoped to a GitHub Environment — ensure this job declares the matching 'environment:' (or move them to repository-level Secrets)."
+            exit 1
+          fi
+          echo "All required secrets present."
+          if [ -z "${SITE_URL}" ]; then
+            echo "::warning::SITE_URL is unset — sitemap.xml, robots.txt, canonical and OG tags will use http://localhost:3000. Set it to your public Caddy URL (e.g. https://wqn.example.com) once you care about SEO / social sharing."
+          fi
+          umask 077
+          {
+            echo "# Rendered by GitHub Actions — overwritten on every deploy. Do not edit on the server."
+            echo "POSTGRES_USER=wqn"
+            echo "POSTGRES_PASSWORD=${POSTGRES_PASSWORD}"
+            echo "POSTGRES_DB=wqn"
+            echo "POSTGRES_PORT=5432"
+            echo "AUTH_JWT_SECRET=${AUTH_JWT_SECRET}"
+            echo "BACKEND_PORT=8080"
+            echo "AUTH_COOKIE_SECURE=${AUTH_COOKIE_SECURE}"
+            echo "AUTH_SESSION_TTL_SECONDS=2592000"
+            echo "DATABASE_MAX_CONNECTIONS=10"
+            echo "WQN_API_BASE_URL=http://backend:8080"
+            if [ -n "${SITE_URL}" ]; then echo "SITE_URL=${SITE_URL}"; fi
+            if [ -n "${CORS_ALLOWED_ORIGINS}" ]; then echo "CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS}"; fi
+            echo "FRONTEND_PORT=3000"
+          } > .env
+          echo "Rendered .env (cookie_secure=${AUTH_COOKIE_SECURE}, site_url=${SITE_URL:-<unset, defaults to localhost>})"
+
+      - name: Configure SSH key
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+        uses: webfactory/ssh-agent@v0.9.1
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Ensure deploy directory exists on server
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+        env:
+          SSH_TARGET: ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}
+        run: ssh ${SSH_OPTS} -p "${SSH_PORT}" "${SSH_TARGET}" "mkdir -p '${DEPLOY_PATH}'"
+
+      - name: Upload compose config and images to server
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+        env:
+          SSH_TARGET: ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}
+        run: |
+          scp ${SSH_OPTS} -P "${SSH_PORT}" \
+            docker-compose.yml .env backend.tgz frontend.tgz \
+            "${SSH_TARGET}:${DEPLOY_PATH}/"
+
+      # The target host runs podman (not docker). CI still builds with Docker and
+      # ships a docker-archive tarball — `podman load` reads it fine. NOTE: if the
+      # deploy user is non-root (rootless podman), enable lingering once on the
+      # server (`sudo loginctl enable-linger <SSH_USER>`) or the containers stop
+      # when this SSH session ends.
+      - name: Load images and restart the stack
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+        env:
+          SSH_TARGET: ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}
+        run: |
+          ssh ${SSH_OPTS} -p "${SSH_PORT}" "${SSH_TARGET}" \
+            "cd '${DEPLOY_PATH}' && \
+             podman load -i backend.tgz && \
+             podman load -i frontend.tgz && \
+             podman compose --env-file .env up -d --remove-orphans && \
+             podman compose --env-file .env ps && \
+             podman image prune -f"
