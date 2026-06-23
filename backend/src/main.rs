@@ -1,27 +1,27 @@
 use std::net::SocketAddr;
 
 use anyhow::Context;
-use sqlx::postgres::PgPoolOptions;
 use tokio::net::TcpListener;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
-use wrong_question_notebook_rs::{AppConfig, AppState, build_router, spawn_reaper};
+use wrong_question_notebook_rs::{
+    AppConfig, AppState, build_router, connect_and_migrate, spawn_reaper,
+};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     dotenvy::dotenv().ok();
+
+    // `admin` subcommand: bootstrap/recover super-admin accounts without
+    // starting the HTTP server (e.g. `wqn-backend admin create --email ...`).
+    let args: Vec<String> = std::env::args().collect();
+    if args.get(1).map(String::as_str) == Some("admin") {
+        return wrong_question_notebook_rs::cli::run(&args[2..]).await;
+    }
+
     init_tracing();
 
     let config = AppConfig::from_env().context("failed to load configuration")?;
-    let pool = PgPoolOptions::new()
-        .max_connections(config.database_max_connections)
-        .connect(&config.database_url)
-        .await
-        .context("failed to connect to Postgres")?;
-
-    sqlx::migrate!()
-        .run(&pool)
-        .await
-        .context("failed to run SQLx migrations")?;
+    let pool = connect_and_migrate(&config).await?;
 
     let bind_addr: SocketAddr = config
         .bind_addr

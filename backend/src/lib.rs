@@ -1,4 +1,5 @@
 mod auth;
+pub mod cli;
 mod config;
 mod db;
 mod dto;
@@ -11,7 +12,9 @@ mod routes;
 mod services;
 mod state;
 
+use anyhow::Context;
 use axum::Router;
+use sqlx::PgPool;
 use tower_http::{
     cors::CorsLayer,
     request_id::{MakeRequestUuid, PropagateRequestIdLayer, SetRequestIdLayer},
@@ -23,6 +26,22 @@ use tower_http::{
 pub use crate::config::AppConfig;
 pub use crate::services::cleanup::spawn_reaper;
 pub use crate::state::AppState;
+
+/// Connect a Postgres pool using the app configuration and run any pending
+/// embedded migrations. Shared by the server (`main`) and the `admin` CLI so
+/// both boot from the same database state.
+pub async fn connect_and_migrate(config: &AppConfig) -> anyhow::Result<PgPool> {
+    let pool = sqlx::postgres::PgPoolOptions::new()
+        .max_connections(config.database_max_connections)
+        .connect(&config.database_url)
+        .await
+        .context("failed to connect to Postgres")?;
+    sqlx::migrate!()
+        .run(&pool)
+        .await
+        .context("failed to run SQLx migrations")?;
+    Ok(pool)
+}
 
 /// Assemble the full application router: the API routes, Swagger UI, and the
 /// middleware stack (tracing, request IDs, sensitive-header stripping, timeout,

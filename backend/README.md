@@ -79,6 +79,23 @@ export DATABASE_URL="postgres://wqn:wqn_password@127.0.0.1:5432/wqn"
 cargo run --release
 ```
 
+## 超管账号（CLI）
+
+无需直连数据库，用 `admin` 子命令创建/重置超级管理员（二进制运行名 `wqn-backend`）：
+
+```bash
+# 创建超管（交互式输入两次密码，不回显）
+docker compose exec -it backend wqn-backend admin create --email admin@example.com
+# 重置忘记密码的超管（令所有现有会话立即失效）
+docker compose exec -it backend wqn-backend admin reset-password --email admin@example.com
+```
+
+本地运行：`cargo run -- admin create --email admin@example.com`。
+
+- `create` 幂等：邮箱不存在则新建超管；已存在普通用户则提权；已是超管则跳过。
+- 密码仅在新建账号时询问；自动化用 `--password-stdin` 从 stdin 读密码（跳过确认）。
+- 需与服务相同的 `.env`（`DATABASE_URL` 等），迁移自动执行。
+
 ## 环境变量
 
 完整列表见 `.env.example`，关键项：

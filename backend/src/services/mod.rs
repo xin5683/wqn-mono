@@ -6,6 +6,7 @@ pub mod gemini;
 pub mod insights;
 pub mod limits_config;
 pub mod misc;
+pub mod password;
 pub mod problem_filters;
 pub mod problem_sets;
 pub mod problems;
