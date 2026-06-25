@@ -12,7 +12,7 @@ export function ConsentBanner() {
   const { acceptAll, rejectAll, openPreferences } = useConsent();
 
   return (
-    <div className="cookie-banner-slide-up fixed bottom-0 inset-x-0 z-50 p-4 sm:p-6">
+    <div className="cookie-banner-slide-up fixed bottom-0 inset-x-0 z-[60] p-4 sm:p-6">
       <div className="bg-white dark:bg-stone-900 max-w-3xl mx-auto rounded-2xl border border-amber-200/40 dark:border-amber-800/30 shadow-lg p-5 sm:p-6">
         <div className="flex flex-col gap-4">
           <div className="flex items-start gap-3">

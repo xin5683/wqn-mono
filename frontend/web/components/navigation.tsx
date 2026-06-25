@@ -23,7 +23,7 @@ export function Navigation({
 
   return (
     <nav
-      className={`w-full border-b border-border/60 bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60 ${stickyClass} ${className}`}
+      className={`w-full border-b border-border/60 bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60 pt-[env(safe-area-inset-top)] ${stickyClass} ${className}`}
     >
       <div className="flex h-16 w-full items-center justify-between gap-4 px-4 sm:px-6 lg:px-10">
         <div className="flex min-w-0 items-center gap-4">
@@ -44,7 +44,7 @@ export function Navigation({
           {showAppLinks ? <AppNavLinks /> : null}
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
           {hasEnvVars && <ProfileButton />}
           <LocaleSwitcher />
           <ThemeSwitcher />

@@ -61,6 +61,14 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // Digital Asset Links (TWA) and other well-known files must be served as
+  // static assets directly — Google's TWA verifier fetches
+  // /.well-known/assetlinks.json and must receive the JSON, not a locale
+  // redirect or an auth redirect to /login. Short-circuit before intl + auth.
+  if (originalPathname.startsWith('/.well-known/')) {
+    return NextResponse.next();
+  }
+
   let locale = routing.defaultLocale;
   const intlResponse = await intlMiddleware(request);
 

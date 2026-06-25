@@ -1,29 +1,21 @@
 'use client';
 
-import { useState } from 'react';
 import { Link } from '@/i18n/navigation';
 import { usePathname } from '@/i18n/navigation';
 import {
-  Menu,
   BookOpen,
   FolderOpen,
   Globe,
   BarChart3,
   Lightbulb,
-  type LucideIcon,
 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 
 import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 
-const APP_LINKS = [
+// Shared by the desktop top nav (AppNavLinks) and the mobile bottom tab bar
+// (MobileTabBar). Keep icon + colour per entry so both surfaces stay in sync.
+export const APP_LINKS = [
   {
     href: '/subjects',
     labelKey: 'subjects' as const,
@@ -61,7 +53,7 @@ const APP_LINKS = [
   },
 ];
 
-function isActivePath(pathname: string | null, href: string) {
+export function isActivePath(pathname: string | null, href: string) {
   if (!pathname) return false;
   return pathname === href || pathname.startsWith(`${href}/`);
 }
@@ -92,94 +84,14 @@ function NavLink({
   );
 }
 
-function MobileNavLink({
-  href,
-  labelKey,
-  icon: Icon,
-  iconBg,
-  iconColor,
-  onClick,
-}: {
-  href: string;
-  labelKey: (typeof APP_LINKS)[number]['labelKey'];
-  icon: LucideIcon;
-  iconBg: string;
-  iconColor: string;
-  onClick?: () => void;
-}) {
-  const t = useTranslations('Navigation');
-  const pathname = usePathname();
-  const active = isActivePath(pathname, href);
-
-  return (
-    <Link
-      href={href}
-      onClick={onClick}
-      className={cn(
-        'flex w-full items-center gap-3 text-gray-600 dark:text-gray-400',
-        active && 'font-semibold text-gray-900 dark:text-white'
-      )}
-      aria-current={active ? 'page' : undefined}
-    >
-      <span
-        className={cn(
-          'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg',
-          iconBg
-        )}
-      >
-        <Icon className={cn('h-[18px] w-[18px]', iconColor)} />
-      </span>
-      <span className="text-[15px]">{t(labelKey)}</span>
-    </Link>
-  );
-}
-
+// Desktop-only horizontal nav. On mobile, navigation lives in the bottom tab
+// bar (components/mobile-tab-bar.tsx) — this surface is hidden below `md`.
 export function AppNavLinks() {
-  const [open, setOpen] = useState(false);
-
   return (
-    <>
-      <div className="hidden items-center gap-6 md:flex">
-        {APP_LINKS.map(l => (
-          <NavLink key={l.href} href={l.href} labelKey={l.labelKey} />
-        ))}
-      </div>
-
-      <div className="md:hidden">
-        <DropdownMenu open={open} onOpenChange={setOpen}>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="outline"
-              size="icon"
-              className="h-11 w-11 rounded-xl"
-              aria-label="Open navigation"
-            >
-              <Menu className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent
-            align="start"
-            className="w-full space-y-2 rounded-xl border-amber-200/40 p-2 dark:border-amber-800/30"
-          >
-            {APP_LINKS.map(l => (
-              <DropdownMenuItem
-                key={l.href}
-                asChild
-                className="rounded-lg px-2.5 py-2.5 focus:bg-amber-50/80 dark:focus:bg-amber-900/20"
-              >
-                <MobileNavLink
-                  href={l.href}
-                  labelKey={l.labelKey}
-                  icon={l.icon}
-                  iconBg={l.iconBg}
-                  iconColor={l.iconColor}
-                  onClick={() => setOpen(false)}
-                />
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
-    </>
+    <div className="hidden items-center gap-6 md:flex">
+      {APP_LINKS.map(l => (
+        <NavLink key={l.href} href={l.href} labelKey={l.labelKey} />
+      ))}
+    </div>
   );
 }

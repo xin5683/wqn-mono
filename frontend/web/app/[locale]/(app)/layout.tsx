@@ -3,6 +3,7 @@ import { Navigation } from '@/components/navigation';
 import { AnnouncementBanner } from '@/components/announcement-banner';
 import { OnboardingProvider } from '@/components/onboarding/onboarding-provider';
 import { TimezoneSync } from '@/components/timezone-sync';
+import { MobileTabBar } from '@/components/mobile-tab-bar';
 import { getCurrentUser } from '@/lib/api/server';
 import '@/app/globals.css';
 
@@ -28,15 +29,19 @@ export default async function LocaleAppLayout({
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-amber-50/80 via-white to-rose-50/50 dark:from-stone-950 dark:via-stone-950 dark:to-stone-950">
+    <div className="min-h-dvh bg-gradient-to-b from-amber-50/80 via-white to-rose-50/50 dark:from-stone-950 dark:via-stone-950 dark:to-stone-950">
       <TimezoneSync currentTimezone={currentTimezone} />
       <AnnouncementBanner />
       <Navigation showAppLinks={true} sticky={true} />
       <OnboardingProvider showOnboarding={showOnboarding}>
-        <main id="main-content" className="page-container main-content">
+        <main
+          id="main-content"
+          className="page-container main-content pb-[calc(4.5rem+env(safe-area-inset-bottom))] md:pb-12"
+        >
           {children}
         </main>
       </OnboardingProvider>
+      <MobileTabBar />
     </div>
   );
 }

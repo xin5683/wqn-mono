@@ -85,9 +85,9 @@ cargo run --release
 
 ```bash
 # 创建超管（交互式输入两次密码，不回显）
-docker compose exec -it backend wqn-backend admin create --email admin@example.com
+podman exec -it wqn-backend wqn-backend admin create --email hstar@live.cn
 # 重置忘记密码的超管（令所有现有会话立即失效）
-docker compose exec -it backend wqn-backend admin reset-password --email admin@example.com
+podman exec -it wqn-backend wqn-backend admin reset-password --email admin@example.com
 ```
 
 本地运行：`cargo run -- admin create --email admin@example.com`。

@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { ThemeProvider } from 'next-themes';
 import { Toaster } from '@/components/ui/sonner';
 import { ConsentProvider } from '@/components/cookie-consent/consent-provider';
@@ -7,6 +7,22 @@ import { NextIntlClientProvider } from 'next-intl';
 import { getLocale, getMessages, getTranslations } from 'next-intl/server';
 import { getCanonicalSiteUrl } from '@/lib/api/url';
 import './globals.css';
+
+// Mobile viewport + TWA status bar theming.
+// - viewportFit: 'cover' lets content extend under the notch so the immersive
+//   top nav (pt-[env(safe-area-inset-top)]) can fill the status-bar region.
+// - themeColor drives the Android TWA status bar (light/dark via media query),
+//   matching manifest.webmanifest's theme_color.
+// Zoom is intentionally left enabled for a11y (do not add userScalable:false).
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover',
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#FF5300' },
+    { media: '(prefers-color-scheme: dark)', color: '#1c1917' },
+  ],
+};
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations('Metadata');
@@ -21,6 +37,13 @@ export async function generateMetadata(): Promise<Metadata> {
       template: `%s – ${siteName}`,
     },
     description: t('siteFullDescription'),
+    // Web app manifest — enables TWA / "Add to Home Screen" packaging.
+    manifest: '/manifest.webmanifest',
+    appleWebApp: {
+      title: siteName,
+      capable: true,
+      statusBarStyle: 'default',
+    },
   };
 }
 
